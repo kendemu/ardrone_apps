@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="ardrone_teleop" type="ardrone_teleop_key" name="ardrone_teleop_keyboard" output="screen">
+        <param name="scale_linear" value="1.0" type="double" />
+        <param name="scale_angular" value="1.0" type="double" />
+    </node>
+</launch>

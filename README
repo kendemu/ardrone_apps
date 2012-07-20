@@ -1,0 +1,13 @@
+Applications for the AR.Drone
+
+Currently, there is an (unfinished) Keyboard teleop for the ARDrone. It is based off the Turtlebot's keyboard teleop, and currently only allows movement in the x and y linear directions (does not turn, does not move up or down).
+
+Notes:
+This depends on the ardrone_autonomy package.
+You can find it at https://github.com/AutonomyLab/ardrone_autonomy
+
+TODO:
+ - Teleop:
+   - Add movement in z linear direction, and allow turning.
+   - add joystick movement
+ - Come up with other apps
