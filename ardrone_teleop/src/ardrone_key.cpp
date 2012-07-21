@@ -2,6 +2,7 @@
  * Copyright (c) 2012, Rachel Brindle
  * All rights reserved.
  *
+ * Released under a BSD license
  */
 
 #include <ros/ros.h>
@@ -135,6 +136,22 @@ void ARDroneTeleop::keyLoop()
                 ROS_DEBUG("BACK");
                 linearx=-1.0;
                 break;
+            case 0x2e: // '.' dvorak...
+                ROS_DEBUG("UP");
+                linearz=1.0;
+                break;
+            case 0x65: // 'e' dvorak...
+                ROS_DEBUG("DOWN");
+                linearz=-1.0;
+                break;
+            case 0x6f: // 'o' dvorak...
+                ROS_DEBUG("TURN LEFT");
+                angular=-1.0;
+                break;
+            case 0x75: // 'u' dvorak...
+                ROS_DEBUG("TURN RIGHT");
+                angular=1.0;
+                break;
             case 0x20:
                 if (state == -1) {
                     ROS_DEBUG("EMERGENCY");
@@ -147,11 +164,14 @@ void ARDroneTeleop::keyLoop()
                     state = 0;
                 }
                 break;
+/*
             case 0x65:
                 ROS_DEBUG("EMERGENCY");
                 state = -1;
                 break;
+*/
         }
+        //fprintf(stderr, "DEBUG: remove 'continue' that prevents messages from being sent.\n");
         boost::mutex::scoped_lock lock(publishMutex);
         if (ros::Time::now() > lastPublish + ros::Duration(1.0))
             firstPublish = ros::Time::now();
