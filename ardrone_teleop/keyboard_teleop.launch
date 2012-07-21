@@ -3,4 +3,13 @@
         <param name="scale_linear" value="1.0" type="double" />
         <param name="scale_angular" value="1.0" type="double" />
     </node>
+
+    <node pkg="ardrone_teleop" type="ardrone_teleop_key" name="ardrone_teleop_keyboard_custom" output="screen">
+        <param name="linear_z_control+" value="." type="char" />
+        <param name="linear_z_control-" value="e" type="char" />
+        <param name="angular_z_control+" value="u" type="char" />
+        <param name="angular_z_control-" value="o" type="char" />
+        <param name="scale_linear" value="1.0" type="double" />
+        <param name="scale_angular" value="1.0" type="double" />
+    </node>
 </launch>

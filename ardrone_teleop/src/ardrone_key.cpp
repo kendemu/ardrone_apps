@@ -33,6 +33,7 @@ private:
     ros::Time lastPublish;
     double lScale, aScale;
     char state; // -1 = emergency, 0 = landed, 1 = flying
+    char linzplus, linzmin, angzplus, angzmin;
     ros::Publisher velPub;
     ros::Publisher emerPub;
     ros::Publisher landPub;
@@ -40,6 +41,14 @@ private:
     void publish(double, double, double, double, char, char);
     boost::mutex publishMutex;
 };
+
+char GetRosParam(char *param, char defaultVal) {
+    std::string name(param);
+    char res, ret;
+    ret = (ros::param::get(name, res)) ? res : defaultVal;
+    ROS_DEBUG("SET %-30s: %02x", param, ret);
+    return ret;
+}
 
 ARDroneTeleop::ARDroneTeleop():
     linearx(0),
@@ -50,6 +59,10 @@ ARDroneTeleop::ARDroneTeleop():
     lScale(1.0),
     aScale(1.0)
 {
+    linzplus = GetRosParam("~linear_z_control+", 'w');
+    linzmin = GetRosParam("~linear_z_control-", 's');
+    angzplus = GetRosParam("~linear_z_control+", 'd');
+    angzmin = GetRosParam("~linear_z_control-", 'a');
     velPub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     emerPub = nh.advertise<std_msgs::Empty>("ardrone/reset", 1);
     landPub = nh.advertise<std_msgs::Empty>("ardrone/land", 1);
