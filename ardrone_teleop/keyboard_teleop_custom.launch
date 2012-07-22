@@ -1,0 +1,10 @@
+<launch>
+    <node pkg="ardrone_teleop" type="ardrone_teleop_key" name="ardrone_teleop_keyboard_custom" output="screen">
+        <param name="linear_z_controlp" value="46" type="int" />
+        <param name="linear_z_controlm" value="101" type="int" />
+        <param name="angular_z_controlp" value="117" type="int" />
+        <param name="angular_z_controlm" value="111" type="int" />
+        <param name="scale_linear" value="1.0" type="double" />
+        <param name="scale_angular" value="1.0" type="double" />
+    </node>
+</launch>

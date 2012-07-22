@@ -44,10 +44,10 @@ private:
 
 char GetRosParam(char *param, char defaultVal) {
     std::string name(param);
-    char res, ret;
+    int res, ret;
     ret = (ros::param::get(name, res)) ? res : defaultVal;
     ROS_DEBUG("SET %-30s: %02x", param, ret);
-    return ret;
+    return (char)ret;
 }
 
 ARDroneTeleop::ARDroneTeleop():
@@ -59,10 +59,10 @@ ARDroneTeleop::ARDroneTeleop():
     lScale(1.0),
     aScale(1.0)
 {
-    linzplus = GetRosParam("~linear_z_control+", 'w');
-    linzmin = GetRosParam("~linear_z_control-", 's');
-    angzplus = GetRosParam("~linear_z_control+", 'd');
-    angzmin = GetRosParam("~linear_z_control-", 'a');
+    linzplus = GetRosParam("~linear_z_controlp", 'w');
+    linzmin = GetRosParam("~linear_z_controlm", 's');
+    angzplus = GetRosParam("~angular_z_controlp", 'd');
+    angzmin = GetRosParam("~angular_z_controlm", 'a');
     velPub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     emerPub = nh.advertise<std_msgs::Empty>("ardrone/reset", 1);
     landPub = nh.advertise<std_msgs::Empty>("ardrone/land", 1);
@@ -132,51 +132,41 @@ void ARDroneTeleop::keyLoop()
         ROS_DEBUG("value: 0x%02X\n", c);
         char pastState = state;
 
-        switch (c) {
-            case KEYCODE_L:
-                ROS_DEBUG("LEFT");
-                lineary=1.0;
-                break;
-            case KEYCODE_R:
-                ROS_DEBUG("RIGHT");
-                lineary=-1.0;
-                break;
-            case KEYCODE_U:
-                ROS_DEBUG("FORWARD");
-                linearx=1.0;
-                break;
-            case KEYCODE_D:
-                ROS_DEBUG("BACK");
-                linearx=-1.0;
-                break;
-            case 0x2e: // '.' dvorak...
-                ROS_DEBUG("UP");
-                linearz=1.0;
-                break;
-            case 0x65: // 'e' dvorak...
-                ROS_DEBUG("DOWN");
-                linearz=-1.0;
-                break;
-            case 0x6f: // 'o' dvorak...
-                ROS_DEBUG("TURN LEFT");
-                angular=-1.0;
-                break;
-            case 0x75: // 'u' dvorak...
-                ROS_DEBUG("TURN RIGHT");
-                angular=1.0;
-                break;
-            case 0x20:
-                if (state == -1) {
-                    ROS_DEBUG("EMERGENCY");
-                    state = 0;
-                } else if (state == 0) {
-                    ROS_DEBUG("TAKE OFF");
-                    state = 1;
-                } else if (state == 1) { // flying
-                    ROS_DEBUG("LAND");
-                    state = 0;
-                }
-                break;
+        if (c == KEYCODE_L) {
+            ROS_DEBUG("LEFT");
+            lineary=1.0;
+        } else if (c == KEYCODE_R) {
+            ROS_DEBUG("RIGHT");
+            lineary=-1.0;
+        } else if (c == KEYCODE_U) {
+            ROS_DEBUG("FORWARD");
+            linearx=1.0;
+        } else if (c == KEYCODE_D) {
+            ROS_DEBUG("BACK");
+            linearx=-1.0;
+        } else if (c == linzplus) {
+            ROS_DEBUG("UP");
+            linearz=1.0;
+        } else if (c == linzmin) {
+            ROS_DEBUG("DOWN");
+            linearz=-1.0;
+        } else if (c == angzplus) {
+            ROS_DEBUG("TURN LEFT");
+            angular=-1.0;
+        } else if (c == angzmin) {
+            ROS_DEBUG("TURN RIGHT");
+            angular=1.0;
+        } else if (c == 0x20) {
+            if (state == -1) {
+                ROS_DEBUG("EMERGENCY");
+                state = 0;
+            } else if (state == 0) {
+                ROS_DEBUG("TAKE OFF");
+                state = 1;
+            } else if (state == 1) { // flying
+                ROS_DEBUG("LAND");
+                state = 0;
+            }
 /*
             case 0x65:
                 ROS_DEBUG("EMERGENCY");
