@@ -101,8 +101,8 @@ int main(int argc, char **argv)
 void ARDroneTeleop::watchdog()
 {
     boost::mutex::scoped_lock lock(publishMutex);
-    if ((ros::Time::now() > lastPublish + ros::Duration(0.05)) &&
-        (ros::Time::now() > firstPublish + ros::Duration(0.15)))
+    if ((ros::Time::now() > lastPublish + ros::Duration(0.06)) &&
+        (ros::Time::now() > firstPublish + ros::Duration(0.12)))
         publish(0, 0, 0, 0, 0, 0);
 }
 
@@ -135,28 +135,28 @@ void ARDroneTeleop::keyLoop()
         if (c == KEYCODE_L) {
             ROS_DEBUG("LEFT");
             lineary=1.0;
-        } else if (c == KEYCODE_R) {
+        } if (c == KEYCODE_R) {
             ROS_DEBUG("RIGHT");
             lineary=-1.0;
-        } else if (c == KEYCODE_U) {
+        } if (c == KEYCODE_U) {
             ROS_DEBUG("FORWARD");
             linearx=1.0;
-        } else if (c == KEYCODE_D) {
+        } if (c == KEYCODE_D) {
             ROS_DEBUG("BACK");
             linearx=-1.0;
-        } else if (c == linzplus) {
+        } if (c == linzplus) {
             ROS_DEBUG("UP");
             linearz=1.0;
-        } else if (c == linzmin) {
+        } if (c == linzmin) {
             ROS_DEBUG("DOWN");
             linearz=-1.0;
-        } else if (c == angzplus) {
+        } if (c == angzplus) {
             ROS_DEBUG("TURN LEFT");
             angular=-1.0;
-        } else if (c == angzmin) {
+        } if (c == angzmin) {
             ROS_DEBUG("TURN RIGHT");
             angular=1.0;
-        } else if (c == 0x20) {
+        } if (c == 0x20) {
             if (state == -1) {
                 ROS_DEBUG("EMERGENCY");
                 state = 0;
@@ -176,7 +176,7 @@ void ARDroneTeleop::keyLoop()
         }
         //fprintf(stderr, "DEBUG: remove 'continue' that prevents messages from being sent.\n");
         boost::mutex::scoped_lock lock(publishMutex);
-        if (ros::Time::now() > lastPublish + ros::Duration(1.0))
+        if (ros::Time::now() > lastPublish + ros::Duration(0.03))
             firstPublish = ros::Time::now();
         lastPublish = ros::Time::now();
         publish(angular, linearx, lineary, linearz, state, pastState);
