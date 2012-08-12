@@ -69,9 +69,12 @@ void ARDrone_Imu::PubIMU()
     msg.linear_acceleration_covariance[0] = -1;
 
     geometry_msgs::Quaternion q;
-    msg.orientation_covariance = {0.1, 0, 0,
-                                  0, 0.1, 0,
-                                  0, 0, 0.1};
+    for (int i = 0; i < 9; i++)
+        msg.orientation_covariance[i] = 0;
+    msg.orientation_covariance[0] = 0.1;
+    msg.orientation_covariance[4] = 0.1;
+    msg.orientation_covariance[8] = 0.1;
+
     q.x = rotx;
     q.y = roty;
     q.z = rotz;
@@ -112,12 +115,15 @@ void ARDrone_Imu::PubIMU()
     z = 0.1;
     // todo: get a GPS device on here to fix that!
 
-    om.pose.covariance = {x, 0, 0, 0, 0, 0,
-                          0, y, 0, 0, 0, 0,
-                          0, 0, z, 0, 0, 0,
-                          0, 0, 0, c, 0, 0,
-                          0, 0, 0, 0, c, 0,
-                          0, 0, 0, 0, 0, c};
+    for (int i = 0; i < 36; i++)
+        om.pose.covariance[i] = 0;
+
+    om.pose.covariance[0] = x;
+    om.pose.covariance[7] = y;
+    om.pose.covariance[14] = z;
+    om.pose.covariance[21] = c;
+    om.pose.covariance[28] = c;
+    om.pose.covariance[35] = c;
 }
 
 void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
