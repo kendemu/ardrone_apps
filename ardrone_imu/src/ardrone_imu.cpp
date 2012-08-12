@@ -124,6 +124,8 @@ void ARDrone_Imu::PubIMU()
     om.pose.covariance[21] = c;
     om.pose.covariance[28] = c;
     om.pose.covariance[35] = c;
+    imu_pub.publish(msg);
+    vo_pub.publish(om);
 }
 
 void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
@@ -160,13 +162,20 @@ void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
     magy = msg->magY;
     magz = msg->magZ;
 
-    if (msg->state != 0) { // flying.
+    if (msg->state >= 3 && msg->state != 5) {
         linx += ((velx * dt) + (0.5 * ts * accx));
         liny += ((vely * dt) + (0.5 * ts * accy));
     //    linz += ((velz * dt) + (0.5 * ts * accz));
         linz = alt;
-
+    } else if (msg->state != 0) { // flying.
+        accx = 0;
+        accy = 0;
+        accz = gravity;
+        rotx = 0;
+        roty = 0;
+        rotz = 0;
     }
+    PubIMU();
 }
 
 ARDrone_Imu::ARDrone_Imu()
