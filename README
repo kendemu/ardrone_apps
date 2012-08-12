@@ -1,6 +1,9 @@
 Applications for the AR.Drone
 
-Currently, there is a keyboard teleop for the ARDrone. I would like to see if I can get fuerte's navstack to work on it, but if that requires an openni device, then that's not happening.
+Currently, there are three applications:
+ - Keyboard teleop
+ - PS3 teleop
+ - Navigation. Converts the Navdata2 message into /imu_data and /vo (For use with robot_pose_ekf).
 
 Notes:
 This depends on the ardrone_autonomy package.
@@ -8,5 +11,5 @@ You can find it at https://github.com/AutonomyLab/ardrone_autonomy
 
 TODO:
  - Teleop:
-   - add joystick control (e.g. control from a ps3)
+   - Less annoying keyboard control.
  - Come up with other apps
