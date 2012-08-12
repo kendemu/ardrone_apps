@@ -12,67 +12,19 @@
 #include <math.h>
 #include <vector>
 #include <std_msgs/Bool.h>
+#include <sensor_msgs/Imu.h>
+#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/Vector3.h>
 
 #define DEBUG
 
 #include <ardrone_autonomy/Navdata.h>
 #include <ardrone_autonomy/Navdata2.h>
 
-#define MSS_PER_GS 9.79
+#define MSS_PER_GS 9.80
 
 #define M_TAU M_PI * 2
-
-inline double ssds(std::vector<double> xi, double x)
-{
-    if (xi.size() < 2)
-        return 0;
-    double sum = 0;
-    for (std::vector<double>::iterator i = xi.begin(); i < xi.end(); i++) {
-        double foo = *i - x;
-        sum += (foo * foo);
-    }
-    return sum / (xi.size() - 1);
-}
-
-inline double ssd(std::vector<double> xi, double x)
-{
-    return sqrt(ssds(xi, x));
-}
-
-inline double mean(std::vector<double> xi)
-{
-    if (xi.size() == 0)
-        return 0;
-    double sum = 0;
-    for (std::vector<double>::iterator i = xi.begin(); i < xi.end(); i++) {
-        double d = *i;
-        sum += d;
-    }
-    return sum / xi.size();
-}
-
-inline double fastSign(double d)
-{
-    if (d < 0)
-        return -1;
-    return 1;
-}
-
-inline double rse(std::vector<double> xi)
-{
-    //double sd = ssds(xi, normal);
-    if (xi.size() == 0)
-        return 1;
-    double me = mean(xi);
-    return ssd(xi, me);
-}
-
-inline double correctAccel(double a, double v, double dt)
-{
-    double expected = v / dt;
-    double sum = expected + a;
-    return sum / 2;
-}
 
 char GetRosParam(char *param, char defaultVal) {
     std::string name(param);
@@ -84,48 +36,88 @@ char GetRosParam(char *param, char defaultVal) {
 
 class ARDrone_Imu {
 private:
-    double linx,liny,linz;
     double rotx,roty,rotz;
+    double linx,liny,linz;
     double velx,vely,velz;
     double accx,accy,accz;
-    double ervx,ervy,ervz;
-    double erax,eray,eraz;
-
-    double gravity;
-    double training;
-    double gtraining;
-    unsigned int lastTrainingDataSize;
+    double magx,magy,magz;
 
     double alt;
     double time;
-    std::vector<double> tvx;
-    std::vector<double> tvy;
-    std::vector<double> tvz;
-    std::vector<double> tax;
-    std::vector<double> tay;
-    std::vector<double> taz;
+    ros::Time rtime;
+    double dt;
     ros::NodeHandle n;
     ros::Subscriber sub;
+    ros::Publisher imu_pub;
+    ros::Publisher vo_pub;
 
 public:
     ARDrone_Imu();
-    void setErrorVals();
     void runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg);
+    void PubIMU();
 };
 
-void ARDrone_Imu::setErrorVals()
+void ARDrone_Imu::PubIMU()
 {
-    assert(tvx.size() == tvy.size() && tvy.size() == tvz.size());
-    if (lastTrainingDataSize == tvx.size())
+    if (imu_pub.getNumSubscribers() == 0 && vo_pub.getNumSubscribers() == 0)
         return;
-    ervx = rse(tvx); // should be standing still...
-    ervy = rse(tvy);
-    ervz = rse(tvz);
 
-    erax = rse(tax);
-    eray = rse(tay);
-    eraz = rse(taz);
-    lastTrainingDataSize = tvx.size();
+    sensor_msgs::Imu msg;
+    msg.header.stamp = rtime;
+
+    msg.angular_velocity_covariance[0] = -1;
+    msg.linear_acceleration_covariance[0] = -1;
+
+    geometry_msgs::Quaternion q;
+    msg.orientation_covariance = {0.1, 0, 0,
+                                  0, 0.1, 0,
+                                  0, 0, 0.1};
+    q.x = rotx;
+    q.y = roty;
+    q.z = rotz;
+    q.w = 0;
+
+    msg.orientation = q;
+
+    geometry_msgs::Vector3 av;
+    geometry_msgs::Vector3 la;
+
+    la.x = accx;
+    la.y = accy;
+    la.z = accz;
+
+    av.x = rotx / dt;
+    av.y = roty / dt;
+    av.z = rotz / dt;
+
+    msg.angular_velocity = av;
+    msg.linear_acceleration = la;
+
+
+    nav_msgs::Odometry om;
+    om.header.stamp = rtime;
+
+    om.pose.pose.position.x = linx;
+    om.pose.pose.position.y = liny;
+    om.pose.pose.position.z = linz;
+    om.pose.pose.orientation.x = magx;
+    om.pose.pose.orientation.y = magy;
+    om.pose.pose.orientation.z = magz;
+    om.pose.pose.orientation.w = 0;
+
+    double c = 6; // mag covarience..
+
+    double x,y,z;
+    x = y = 99999; // no idea where it is. :/
+    z = 0.1;
+    // todo: get a GPS device on here to fix that!
+
+    om.pose.covariance = {x, 0, 0, 0, 0, 0,
+                          0, y, 0, 0, 0, 0,
+                          0, 0, z, 0, 0, 0,
+                          0, 0, 0, c, 0, 0,
+                          0, 0, 0, 0, c, 0,
+                          0, 0, 0, 0, 0, c};
 }
 
 void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
@@ -137,66 +129,38 @@ void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
         time = msg->tm;
         return;
     }
-    double dt = (msg->tm - time) / 1000000; // to seconds...
+    rtime = ros::Time::now();
+    dt = (msg->tm - time) / 1000000; // to seconds...
     double ts = dt * dt;
     time = msg->tm;
-    alt = (double)msg->altd;
+    // cm to m
+    alt = (double)msg->altd / 100;
 
-    double vx = msg->vx / 1000; // converting millimeters to meters
-    double vy = msg->vy / 1000;
-    double vz = msg->vz / 1000;
-    double ax = msg->ax;
-    double ay = msg->ay;
-    double az = msg->az;
+    velx = msg->vx / 1000;
+    vely = msg->vy / 1000;
+    velz = msg->vz / 1000;
 
-    if (msg->state >= 3 && msg->state != 5) { // flying.
-        setErrorVals();
-        ax *= gravity;
-        ay *= gravity;
-        az *= gravity;
-        az -= gravity;
+    double gravity = MSS_PER_GS;
 
-        vx = vx / ervx;
-        vy = vy / ervy;
-        vz = vz / ervz;
-        ax = ax / erax;
-        ay = ay / eray;
-        az = az / eraz;
-        linx += ((vx * dt) + (0.5 * ts * ax));
-        liny += ((vy * dt) + (0.5 * ts * ay));
-        linz += ((vz * dt) + (0.5 * ts * az));
+    accx = msg->ax * gravity;
+    accy = msg->ay * gravity;
+    accz = msg->az * gravity;
 
-        fprintf(stderr, "\r%f\t,%f\t,%f\t", linx, liny, linz);
-    } else if (msg->state != 0) { // training.
-        double lx,ly,lz;
-        lx = (vx * dt) + (0.5 * ts * ax);
-        ly = (vy * dt) + (0.5 * ts * ay);
-        lz = (vz * dt) + (0.5 * ts * az);
-        /*
-        double evx = abs(vx);
-        double evy = abs(vy);
-        double evz = abs(vz);
-        double eax = abs(ax);
-        double eay = abs(ay);
-        double eaz = abs(az - gravity);
-        */
-        tvx.push_back(vx);
-        tvy.push_back(vy);
-        tvz.push_back(vz);
-        tax.push_back(ax);
-        tay.push_back(ay);
-        taz.push_back(msg->az);
-        training += 1;
-        /*
-        if ((gtraining + msg->az) > 0) {
-            gtraining += msg->az;
-            gravity = (gtraining / training) * MSS_PER_GS; // don't want to overflow...
-        }
-        */
-        //fprintf(stderr, "Pos: %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t %2.2f\t\n", lx, ly, lz, vx, vy, vz, ax + erax, ay + eray, az + eraz, dt);
+    rotx = msg->rotX;
+    roty = msg->rotY;
+    rotz = msg->rotZ;
+
+    magx = msg->magX;
+    magy = msg->magY;
+    magz = msg->magZ;
+
+    if (msg->state != 0) { // flying.
+        linx += ((velx * dt) + (0.5 * ts * accx));
+        liny += ((vely * dt) + (0.5 * ts * accy));
+    //    linz += ((velz * dt) + (0.5 * ts * accz));
+        linz = alt;
+
     }
-    setErrorVals();
-    fprintf(stderr, "Errors: %2.6f\t %2.6f\t %2.6f\t %2.6f\t\n", erax, eray, eraz, gravity);
 }
 
 ARDrone_Imu::ARDrone_Imu()
@@ -216,30 +180,12 @@ ARDrone_Imu::ARDrone_Imu()
     accy = 0;
     accz = 0;
 
-    ervx = 0;
-    ervy = 0;
-    ervz = 0;
-
-    erax = 0;
-    eray = 0;
-    eraz = 0;
-    training = 0;
-    gtraining = 0;
-
-    gravity = 9.79;
     time = 0;
-    lastTrainingDataSize = 0;
-
-    tvx = std::vector<double>(100);
-    tvy = std::vector<double>(100);
-    tvz = std::vector<double>(100);
-
-    tax = std::vector<double>(100);
-    tay = std::vector<double>(100);
-    taz = std::vector<double>(100);
 
     sub = n.subscribe("ardrone/navdata2", 1, &ARDrone_Imu::runloop, this);
     fprintf(stderr, "subscribed to ardrone/navdata2\n");
+    imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 10);
+    vo_pub = n.advertise<nav_msgs::Odometry>("vo", 10);
 }
 
 int main(int argc, char **argv)
