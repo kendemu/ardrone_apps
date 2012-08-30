@@ -167,12 +167,7 @@ void ARDroneTeleop::keyLoop()
                 ROS_DEBUG("LAND");
                 state = 0;
             }
-/*
-            case 0x65:
-                ROS_DEBUG("EMERGENCY");
-                state = -1;
-                break;
-*/
+        }
         }
         //fprintf(stderr, "DEBUG: remove 'continue' that prevents messages from being sent.\n");
         boost::mutex::scoped_lock lock(publishMutex);
@@ -180,6 +175,7 @@ void ARDroneTeleop::keyLoop()
             firstPublish = ros::Time::now();
         lastPublish = ros::Time::now();
         publish(angular, linearx, lineary, linearz, state, pastState);
+        usleep(15000); // slightly less than 1/60 of a second.
     }
     return;
 }
@@ -198,14 +194,13 @@ void ARDroneTeleop::publish(double ang, double lix, double liy, double liz, char
                 flyPub.publish(std_msgs::Empty());
                 break;
         }
-    } else {
-        geometry_msgs::Twist vel;
-        vel.linear.x = lix;
-        vel.linear.y = liy;
-        vel.linear.z = liz;
-        vel.angular.z = ang;
-
-        velPub.publish(vel);
     }
+    geometry_msgs::Twist vel;
+    vel.linear.x = lix;
+    vel.linear.y = liy;
+    vel.linear.z = liz;
+    vel.angular.z = ang;
+
+    velPub.publish(vel);
     return;
 }

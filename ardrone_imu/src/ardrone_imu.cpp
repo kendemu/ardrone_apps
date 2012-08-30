@@ -16,6 +16,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/Vector3.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #define DEBUG
 
@@ -24,7 +25,7 @@
 
 #define MSS_PER_GS 9.80
 
-#define M_TAU M_PI * 2
+#define M_TAU (M_PI * 2)
 
 char GetRosParam(char *param, char defaultVal) {
     std::string name(param);
@@ -32,6 +33,28 @@ char GetRosParam(char *param, char defaultVal) {
     ret = (ros::param::get(name, res)) ? res : defaultVal;
     ROS_DEBUG("SET %-30s: %02x", param, ret);
     return (char)ret;
+}
+
+geometry_msgs::Quaternion eulerToQuaternion(double x, double y, double z)
+{
+    geometry_msgs::Quaternion ret;
+    double c1 = cos(x/2);
+    double s1 = sin(x/2);
+    double c2 = cos(y/2);
+    double s2 = sin(y/2);
+    double c3 = cos(z/2);
+    double s3 = sin(z/2);
+
+    ret.w = (c1 * c2 * c3) - (s1 * s2 * s3);
+    ret.x = (s1 * s2 * c3) + (c1 * c2 * s3);
+    ret.y = (s1 * c2 * c3) + (c1 * s2 * s3);
+    ret.z = (c1 * s2 * c3) - (s1 * c2 * s3);
+    return ret;
+}
+
+inline double degreeToRadian(double degree)
+{
+    return degree * (M_TAU / 360);
 }
 
 class ARDrone_Imu {
@@ -48,12 +71,14 @@ private:
     double dt;
     ros::NodeHandle n;
     ros::Subscriber sub;
+    ros::Subscriber ekf;
     ros::Publisher imu_pub;
     ros::Publisher vo_pub;
 
 public:
     ARDrone_Imu();
     void runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg);
+    void odom(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
     void PubIMU();
 };
 
@@ -66,19 +91,21 @@ void ARDrone_Imu::PubIMU()
     msg.header.stamp = rtime;
 
     msg.angular_velocity_covariance[0] = -1;
-    msg.linear_acceleration_covariance[0] = -1;
+    for (int i = 0; i < 9; i++)
+        msg.linear_acceleration_covariance[i] = 0;
+    msg.linear_acceleration_covariance[0] = 0.25;
+    msg.linear_acceleration_covariance[4] = 0.25;
+    msg.linear_acceleration_covariance[8] = 0.25;
 
-    geometry_msgs::Quaternion q;
+    geometry_msgs::Quaternion q = eulerToQuaternion(degreeToRadian(rotx),
+                                                    degreeToRadian(roty),
+                                                    degreeToRadian(rotz));
     for (int i = 0; i < 9; i++)
         msg.orientation_covariance[i] = 0;
-    msg.orientation_covariance[0] = 0.1;
-    msg.orientation_covariance[4] = 0.1;
-    msg.orientation_covariance[8] = 0.1;
-
-    q.x = rotx;
-    q.y = roty;
-    q.z = rotz;
-    q.w = 0;
+    double zod = degreeToRadian(0.1);
+    msg.orientation_covariance[0] = zod;
+    msg.orientation_covariance[4] = zod;
+    msg.orientation_covariance[8] = zod;
 
     msg.orientation = q;
 
@@ -103,16 +130,14 @@ void ARDrone_Imu::PubIMU()
     om.pose.pose.position.x = linx;
     om.pose.pose.position.y = liny;
     om.pose.pose.position.z = linz;
-    om.pose.pose.orientation.x = magx;
-    om.pose.pose.orientation.y = magy;
-    om.pose.pose.orientation.z = magz;
-    om.pose.pose.orientation.w = 0;
-
-    double c = 6; // mag covarience..
+    om.pose.pose.orientation = eulerToQuaternion(degreeToRadian(magx),
+                                                 degreeToRadian(magy),
+                                                 degreeToRadian(magz));
+    double c = degreeToRadian(6.0); // mag covarience..
 
     double x,y,z;
     x = y = 99999; // no idea where it is. :/
-    z = 0.1;
+    z = 10;
     // todo: get a GPS device on here to fix that!
 
     for (int i = 0; i < 36; i++)
@@ -128,6 +153,12 @@ void ARDrone_Imu::PubIMU()
     vo_pub.publish(om);
 }
 
+void ARDrone_Imu::odom(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg)
+{
+    linx = msg->pose.pose.position.x;
+    liny = msg->pose.pose.position.y;
+}
+
 void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
 {
     // hm.
@@ -141,8 +172,8 @@ void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
     dt = (msg->tm - time) / 1000000; // to seconds...
     double ts = dt * dt;
     time = msg->tm;
-    // cm to m
-    alt = (double)msg->altd / 100;
+    // mm to m
+    alt = (double)msg->altd / 1000;
 
     velx = msg->vx / 1000;
     vely = msg->vy / 1000;
@@ -165,9 +196,8 @@ void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
     if (msg->state >= 3 && msg->state != 5) {
         linx += ((velx * dt) + (0.5 * ts * accx));
         liny += ((vely * dt) + (0.5 * ts * accy));
-    //    linz += ((velz * dt) + (0.5 * ts * accz));
         linz = alt;
-    } else if (msg->state != 0) { // flying.
+    } else if (msg->state != 0) { // not flying.
         accx = 0;
         accy = 0;
         accz = gravity;
@@ -198,6 +228,7 @@ ARDrone_Imu::ARDrone_Imu()
     time = 0;
 
     sub = n.subscribe("ardrone/navdata2", 1, &ARDrone_Imu::runloop, this);
+    ekf = n.subscribe("robot_pose_ekf/odom_combined", 1, &ARDrone_Imu::odom, this);
     fprintf(stderr, "subscribed to ardrone/navdata2\n");
     imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 10);
     vo_pub = n.advertise<nav_msgs::Odometry>("vo", 10);
