@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="ardrone_timed_move" type="ardrone_timed_move" name="ardrone_timed_move" output="screen">
+    </node>
+</launch>

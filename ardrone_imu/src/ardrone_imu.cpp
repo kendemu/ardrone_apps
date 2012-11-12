@@ -21,7 +21,7 @@
 #define DEBUG
 
 #include <ardrone_autonomy/Navdata.h>
-#include <ardrone_autonomy/Navdata2.h>
+//#include <ardrone_autonomy/Navdata2.h>
 
 #define MSS_PER_GS 9.80
 
@@ -60,6 +60,7 @@ inline double degreeToRadian(double degree)
 class ARDrone_Imu {
 private:
     double rotx,roty,rotz;
+    double lrtx,lrty,lrtz;
     double linx,liny,linz;
     double velx,vely,velz;
     double accx,accy,accz;
@@ -77,7 +78,7 @@ private:
 
 public:
     ARDrone_Imu();
-    void runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg);
+    void runloop(const ardrone_autonomy::Navdata::ConstPtr &msg);
     void odom(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg);
     void PubIMU();
 };
@@ -116,9 +117,13 @@ void ARDrone_Imu::PubIMU()
     la.y = accy;
     la.z = accz;
 
-    av.x = rotx / dt;
-    av.y = roty / dt;
-    av.z = rotz / dt;
+    av.x = (rotx - lrtx) / dt;
+    av.y = (roty - lrty) / dt;
+    av.z = (rotz - lrtz) / dt;
+
+    lrtx = rotx;
+    lrty = roty;
+    lrtz = rotz;
 
     msg.angular_velocity = av;
     msg.linear_acceleration = la;
@@ -159,7 +164,7 @@ void ARDrone_Imu::odom(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr 
     liny = msg->pose.pose.position.y;
 }
 
-void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
+void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata::ConstPtr &msg)
 {
     // hm.
     if (msg->tm < time) // drop the message, it's out of date.
@@ -185,7 +190,8 @@ void ARDrone_Imu::runloop(const ardrone_autonomy::Navdata2::ConstPtr &msg)
     accy = msg->ay * gravity;
     accz = msg->az * gravity;
 
-    rotx = msg->rotX;
+    /* FIXME: robot_pose_ekf expects degrees/second, this is just degrees! */
+    rotx = msg->rotX; 
     roty = msg->rotY;
     rotz = msg->rotZ;
 
@@ -213,9 +219,14 @@ ARDrone_Imu::ARDrone_Imu()
     linx = 0;
     liny = 0;
     linz = 0;
+
     rotx = 0;
     roty = 0;
     rotz = 0;
+
+    lrtx = 0;
+    lrty = 0;
+    lrtz = 0;
 
     velx = 0;
     vely = 0;
@@ -227,9 +238,9 @@ ARDrone_Imu::ARDrone_Imu()
 
     time = 0;
 
-    sub = n.subscribe("ardrone/navdata2", 1, &ARDrone_Imu::runloop, this);
+    sub = n.subscribe("ardrone/navdata", 1, &ARDrone_Imu::runloop, this);
     ekf = n.subscribe("robot_pose_ekf/odom_combined", 1, &ARDrone_Imu::odom, this);
-    fprintf(stderr, "subscribed to ardrone/navdata2\n");
+    fprintf(stderr, "subscribed to ardrone/navdata\n");
     imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 10);
     vo_pub = n.advertise<nav_msgs::Odometry>("vo", 10);
 }
