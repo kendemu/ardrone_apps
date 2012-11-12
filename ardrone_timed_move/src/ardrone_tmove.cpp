@@ -100,10 +100,10 @@ void ARDrone_Waypoint::basicMove(v3 m)
     takeoff();
     sleep(4);
     double dx = 1.0;
-    if (m.x > dx)
-        dx = m.x;
-    if (m.y > dx)
-        dx = m.y;
+    if (fabs(m.x) > dx)
+        dx = fabs(m.x);
+    if (fabs(m.y) > dx)
+        dx = fabs(m.y);
 
     int timeToSleep = 1 + (int)sqrt(dx);
 
