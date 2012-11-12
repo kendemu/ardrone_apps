@@ -3,13 +3,11 @@ Applications for the AR.Drone
 Currently, there are three applications:
  - Keyboard teleop
  - PS3 teleop
- - Navigation. Converts the Navdata2 message into /imu_data and /vo (For use with robot_pose_ekf).
+ - A basic moving application. This assumes that to get to a position x meters away from you, it takes 1 + sqrt(x) seconds of moving constanting in that direction to get there. This is close enough to correct.
 
 Notes:
 This depends on the ardrone_autonomy package.
 You can find it at https://github.com/AutonomyLab/ardrone_autonomy
 
 TODO:
- - Teleop:
-   - Less annoying keyboard control.
  - Come up with other apps
